@@ -123,7 +123,119 @@ Si la clave no coincide, el equipo no se conecta: es el comportamiento esperado.
 
 ---
 
-## 6 · El tema de las versiones (importante)
+## 6 · Configurar RIP
+
+RIP es ruteo **dinámico**: los routers se avisan solos qué redes conocen, en vez de
+que vos escribas las rutas a mano.
+
+**Ojo con esto:** el **Router Inalámbrico** de las prácticas anteriores es un router
+doméstico: tiene interfaz gráfica (GUI) pero **no tiene consola IOS**, así que no
+soporta RIP. Para RIP hay que usar routers Cisco: **2911** o **1941**.
+
+### Topología de ejemplo
+
+Dos routers unidos entre sí, cada uno con su LAN:
+
+| Router | Interfaz | IP | Para qué |
+|---|---|---|---|
+| R1 | GigabitEthernet0/0 | 10.0.0.1 / 255.255.255.252 | enlace hacia R2 |
+| R1 | GigabitEthernet0/1 | 192.168.1.1 / 255.255.255.0 | LAN 1 |
+| R2 | GigabitEthernet0/0 | 10.0.0.2 / 255.255.255.252 | enlace hacia R1 |
+| R2 | GigabitEthernet0/1 | 192.168.2.1 / 255.255.255.0 | LAN 2 |
+
+El cable entre los dos routers va **cruzado** (Copper Cross-Over) si usás
+GigabitEthernet.
+
+Las PC: `192.168.1.10` con gateway `192.168.1.1`, y `192.168.2.10` con gateway
+`192.168.2.1`.
+
+### Comandos en R1
+
+Clic en el router → pestaña **CLI** → enter para llegar al `>`:
+
+```
+enable
+configure terminal
+
+interface GigabitEthernet0/0
+ ip address 10.0.0.1 255.255.255.252
+ no shutdown
+exit
+
+interface GigabitEthernet0/1
+ ip address 192.168.1.1 255.255.255.0
+ no shutdown
+exit
+
+router rip
+ version 2
+ no auto-summary
+ network 10.0.0.0
+ network 192.168.1.0
+ passive-interface GigabitEthernet0/1
+exit
+
+end
+write memory
+```
+
+### Comandos en R2
+
+Lo mismo, cambiando las direcciones:
+
+```
+enable
+configure terminal
+
+interface GigabitEthernet0/0
+ ip address 10.0.0.2 255.255.255.252
+ no shutdown
+exit
+
+interface GigabitEthernet0/1
+ ip address 192.168.2.1 255.255.255.0
+ no shutdown
+exit
+
+router rip
+ version 2
+ no auto-summary
+ network 10.0.0.0
+ network 192.168.2.0
+ passive-interface GigabitEthernet0/1
+exit
+
+end
+write memory
+```
+
+### Cómo saber si funcionó
+
+En cada router:
+
+```
+show ip protocols
+show ip route
+```
+
+En `show ip protocols` tiene que aparecer **Routing Protocol is "rip"**. En
+`show ip route` la red del otro router tiene que salir con una **R** adelante: eso
+significa que la aprendió por RIP.
+
+Y la prueba final: desde la PC de la LAN 1, `ping 192.168.2.10`.
+
+### Los cuatro errores que siempre aparecen
+
+1. **Falta `version 2`.** RIP versión 1 no manda la máscara de subred, así que con
+   subredes no funciona.
+2. **Falta `no auto-summary`.** Sin eso el router resume las redes y se pierden las
+   subredes.
+3. **`network` con máscara.** En RIP va la dirección de red **sola**:
+   `network 192.168.1.0`, no `network 192.168.1.0 255.255.255.0`.
+4. **Las PC sin gateway.** El ping falla aunque RIP esté perfecto, porque la PC no
+   sabe a quién mandarle el tráfico de otra red.
+
+## 7 · El tema de las versiones (importante)
 
 Un archivo `.pkt` **guardado con una versión más nueva no abre en una más vieja**.
 Packet Tracer no tiene "guardar como versión anterior".
